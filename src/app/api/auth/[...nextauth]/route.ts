@@ -5,7 +5,6 @@ import { prisma } from "../../../../lib/prisma";
 import { storeTokensForUser } from "../../../../lib/google";
 
 export const authOptions: NextAuthOptions = {
-  adapter: PrismaAdapter(prisma),
   providers: [
     GoogleProvider({
       clientId: process.env.GOOGLE_CLIENT_ID!,
@@ -26,27 +25,48 @@ export const authOptions: NextAuthOptions = {
     }),
   ],
   session: { strategy: "jwt" },
+  debug: process.env.NODE_ENV !== "production",
   callbacks: {
     async jwt({ token, account, user }) {
       if (account && user) {
         token.userId = user.id as string;
-        token.provider = account.provider;
         token.refreshToken = account.refresh_token;
         token.accessToken = account.access_token;
-        token.expiresAt = account.expires_at;
+        
+        // Store user in database if not exists
+        try {
+          await prisma.user.upsert({
+            where: { email: user.email! },
+            update: {
+              name: user.name,
+              image: user.image,
+            },
+            create: {
+              id: user.id!,
+              email: user.email!,
+              name: user.name,
+              image: user.image,
+              role: 'SELLER', // Default role - allows access to dashboard
+            },
+          });
 
-        // Persist tokens for Calendar API usage
-        await storeTokensForUser({
-          userId: token.userId as string,
-          refreshToken: account.refresh_token,
-          accessToken: account.access_token,
-          accessTokenExpires: account.expires_at ?? null,
-        });
+          // Store tokens for Calendar API usage
+          if (account.refresh_token) {
+            await storeTokensForUser({
+              userId: user.id!,
+              refreshToken: account.refresh_token,
+              accessToken: account.access_token,
+              accessTokenExpires: account.expires_at ?? null,
+            });
+          }
+        } catch (err) {
+          console.error("[NextAuth JWT error]", err);
+        }
       }
       return token;
     },
     async session({ session, token }) {
-      if (session.user) {
+      if (session.user && token.userId) {
         (session.user as any).id = token.userId;
       }
       return session;

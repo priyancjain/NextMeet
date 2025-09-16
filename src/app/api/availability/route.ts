@@ -1,51 +1,107 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "../../../lib/prisma";
 import { getAuthorizedCalendarClientForUser } from "../../../lib/google";
-import { addMinutes, startOfDay, endOfDay } from "date-fns";
+import { generateAvailableSlots, fetchBusyPeriods } from "../../../lib/availability";
+import { z } from "zod";
+
+const querySchema = z.object({
+  sellerId: z.string().min(1, "Seller ID is required"),
+  days: z.string().optional().transform(val => val ? parseInt(val, 10) : 14),
+  slot: z.string().optional().transform(val => val ? parseInt(val, 10) : 30),
+});
 
 export async function GET(req: NextRequest) {
-  const { searchParams } = new URL(req.url);
-  const sellerId = searchParams.get("sellerId");
-  if (!sellerId) return NextResponse.json({ error: "sellerId required" }, { status: 400 });
+  try {
+    const { searchParams } = new URL(req.url);
+    const params = {
+      sellerId: searchParams.get("sellerId"),
+      days: searchParams.get("days"),
+      slot: searchParams.get("slot"),
+    };
 
-  const seller = await prisma.user.findUnique({ where: { id: sellerId } });
-  if (!seller) return NextResponse.json({ error: "Seller not found" }, { status: 404 });
+    const { sellerId, days, slot } = querySchema.parse(params);
 
-  const { calendar } = await getAuthorizedCalendarClientForUser(sellerId);
-
-  const timeMin = startOfDay(new Date()).toISOString();
-  const timeMax = endOfDay(new Date()).toISOString();
-
-  const fb = await calendar.freebusy.query({
-    requestBody: {
-      timeMin,
-      timeMax,
-      items: [{ id: "primary" }],
-    },
-  });
-
-  const busy = fb.data.calendars?.primary?.busy || [];
-  // naive slot generation: 30-min slots 9am-5pm, excluding busy
-  const dayStart = new Date();
-  dayStart.setHours(9, 0, 0, 0);
-  const dayEnd = new Date();
-  dayEnd.setHours(17, 0, 0, 0);
-
-  const slots: { start: Date; end: Date }[] = [];
-  for (let t = new Date(dayStart); t < dayEnd; t = addMinutes(t, 30)) {
-    const slotStart = new Date(t);
-    const slotEnd = addMinutes(slotStart, 30);
-    const overlapsBusy = busy.some((b) => {
-      const bStart = new Date(b.start as string);
-      const bEnd = new Date(b.end as string);
-      return slotStart < bEnd && slotEnd > bStart;
+    // Verify seller exists and has calendar access
+    const seller = await prisma.user.findUnique({ 
+      where: { id: sellerId },
+      select: { id: true, name: true, email: true, role: true, encryptedRefreshToken: true, calendarId: true }
     });
-    if (!overlapsBusy) slots.push({ start: slotStart, end: slotEnd });
-  }
+    
+    if (!seller) {
+      return NextResponse.json({ error: "Seller not found" }, { status: 404 });
+    }
+    
+    if (seller.role !== "SELLER") {
+      return NextResponse.json({ error: "User is not a seller" }, { status: 400 });
+    }
+    
+    if (!seller.encryptedRefreshToken) {
+      return NextResponse.json({ 
+        error: "Seller has not connected their Google Calendar" 
+      }, { status: 400 });
+    }
 
-  return NextResponse.json(
-    slots.map((s) => ({ start: s.start.toISOString(), end: s.end.toISOString() }))
-  );
+    // Get authorized calendar client
+    const { calendar } = await getAuthorizedCalendarClientForUser(sellerId);
+
+    // Fetch busy periods from Google Calendar
+    const busyPeriods = await fetchBusyPeriods(
+      calendar,
+      seller.calendarId || "primary",
+      days
+    );
+
+    // Generate available slots
+    const availableSlots = generateAvailableSlots(busyPeriods, {
+      days,
+      slotDurationMinutes: slot,
+      workingHours: { start: 9, end: 17 }, // TODO: Make configurable per seller
+    });
+
+    return NextResponse.json({
+      slots: availableSlots,
+      seller: {
+        id: seller.id,
+        name: seller.name,
+        email: seller.email,
+      },
+      meta: {
+        days,
+        slotDuration: slot,
+        totalSlots: availableSlots.length,
+      },
+    });
+  } catch (error) {
+    console.error("Error fetching availability:", error);
+    
+    if (error instanceof z.ZodError) {
+      return NextResponse.json(
+        { error: "Invalid parameters", details: error.issues },
+        { status: 400 }
+      );
+    }
+    
+    if (error instanceof Error) {
+      if (error.message.includes("not connected to Google Calendar")) {
+        return NextResponse.json(
+          { error: "Seller calendar not connected" },
+          { status: 400 }
+        );
+      }
+      
+      if (error.message.includes("Failed to fetch calendar availability")) {
+        return NextResponse.json(
+          { error: "Unable to fetch calendar data" },
+          { status: 503 }
+        );
+      }
+    }
+    
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500 }
+    );
+  }
 }
 
 
