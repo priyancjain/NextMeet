@@ -41,7 +41,7 @@ export default async function SellerDashboardPage() {
     redirect("/api/auth/signin");
   }
 
-  const userId = (session.user as any).id as string;
+  const userId = (session.user as { id: string }).id;
   
   // Check if user is a seller
   const user = await prisma.user.findUnique({

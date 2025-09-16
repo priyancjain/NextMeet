@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { Providers } from "../components/providers";
+import Link from "next/link";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -31,13 +32,13 @@ export default function RootLayout({
         <Providers>
           <div className="max-w-6xl mx-auto px-5 py-4">
             <header className="flex items-center justify-between py-3">
-              <a className="text-lg font-semibold tracking-tight" href="/">Next.js Scheduler</a>
+              <Link className="text-lg font-semibold tracking-tight" href="/">Next.js Scheduler</Link>
               <nav className="flex gap-2 text-sm">
                 <a className="px-3 py-1.5 rounded bg-gray-100 hover:bg-gray-200 transition" href="/buyer">Buyer</a>
                 <a className="px-3 py-1.5 rounded bg-gray-100 hover:bg-gray-200 transition" href="/dashboard">Seller</a>
                 <a className="px-3 py-1.5 rounded bg-gray-100 hover:bg-gray-200 transition" href="/appointments">Appointments</a>
-                <a className="px-3 py-1.5 rounded bg-black text-white hover:opacity-90 transition" href="/api/auth/signin">Sign in</a>
-                <a className="px-3 py-1.5 rounded border hover:bg-gray-50 transition" href="/api/auth/signout">Sign out</a>
+                <Link className="px-3 py-1.5 rounded bg-black text-white hover:opacity-90 transition" href="/api/auth/signin">Sign in</Link>
+                <Link className="px-3 py-1.5 rounded border hover:bg-gray-50 transition" href="/api/auth/signout">Sign out</Link>
               </nav>
             </header>
             {children}

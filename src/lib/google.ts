@@ -39,7 +39,7 @@ export async function storeTokensForUser(params: {
 }) {
   const { userId, refreshToken, accessToken, accessTokenExpires } = params;
   
-  const updateData: any = {
+  const updateData: Record<string, unknown> = {
     googleAccessToken: accessToken ?? undefined,
     googleAccessTokenExpires: accessTokenExpires
       ? new Date(accessTokenExpires * 1000)

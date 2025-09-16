@@ -31,7 +31,7 @@ export default async function AppointmentsPage() {
     redirect("/api/auth/signin");
   }
 
-  const userId = (session.user as any).id as string;
+  const userId = (session.user as { id: string }).id;
   
   // Get user role
   const user = await prisma.user.findUnique({
@@ -209,7 +209,7 @@ export default async function AppointmentsPage() {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
             </svg>
             <h3 className="text-lg font-medium text-gray-900 mb-2">No upcoming appointments</h3>
-            <p className="text-gray-600 mb-4">You don't have any appointments scheduled.</p>
+            <p className="text-gray-600">You don't have any appointments yet.</p>
             <Link 
               href="/buyer" 
               className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
