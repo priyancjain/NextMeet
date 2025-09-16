@@ -27,7 +27,19 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        {children}
+        <div className="max-w-5xl mx-auto p-4">
+          <header className="flex items-center justify-between py-4">
+            <a className="font-semibold" href="/">Next.js Scheduler</a>
+            <nav className="flex gap-3 text-sm">
+              <a href="/buyer">Buyer</a>
+              <a href="/dashboard">Seller</a>
+              <a href="/appointments">Appointments</a>
+              <a href="/api/auth/signin">Sign in</a>
+              <a href="/api/auth/signout">Sign out</a>
+            </nav>
+          </header>
+          {children}
+        </div>
       </body>
     </html>
   );
