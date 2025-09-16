@@ -9,6 +9,12 @@ export async function GET(req: NextRequest) {
     const includeAvailability = searchParams.get("includeAvailability") === "true";
     const days = parseInt(searchParams.get("days") || "7", 10);
 
+    // Check if database is available
+    if (!prisma) {
+      console.error("Database connection not available");
+      return NextResponse.json([], { status: 200 });
+    }
+
     const sellers = await prisma.user.findMany({ 
       where: { role: "SELLER" },
       select: {
@@ -19,6 +25,9 @@ export async function GET(req: NextRequest) {
         calendarId: true,
         createdAt: true
       }
+    }).catch((error) => {
+      console.error("Database query failed:", error);
+      return [];
     });
 
     if (!includeAvailability) {
@@ -74,10 +83,8 @@ export async function GET(req: NextRequest) {
     return NextResponse.json(sellersWithAvailability);
   } catch (error) {
     console.error("Error fetching sellers:", error);
-    return NextResponse.json(
-      { error: "Failed to fetch sellers" },
-      { status: 500 }
-    );
+    // Return empty array instead of error object to prevent frontend crashes
+    return NextResponse.json([]);
   }
 }
 
