@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
+import { Providers } from "../components/providers";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -27,19 +28,21 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        <div className="max-w-5xl mx-auto p-4">
-          <header className="flex items-center justify-between py-4">
-            <a className="font-semibold" href="/">Next.js Scheduler</a>
-            <nav className="flex gap-3 text-sm">
-              <a href="/buyer">Buyer</a>
-              <a href="/dashboard">Seller</a>
-              <a href="/appointments">Appointments</a>
-              <a href="/api/auth/signin">Sign in</a>
-              <a href="/api/auth/signout">Sign out</a>
-            </nav>
-          </header>
-          {children}
-        </div>
+        <Providers>
+          <div className="max-w-6xl mx-auto px-5 py-4">
+            <header className="flex items-center justify-between py-3">
+              <a className="text-lg font-semibold tracking-tight" href="/">Next.js Scheduler</a>
+              <nav className="flex gap-2 text-sm">
+                <a className="px-3 py-1.5 rounded bg-gray-100 hover:bg-gray-200 transition" href="/buyer">Buyer</a>
+                <a className="px-3 py-1.5 rounded bg-gray-100 hover:bg-gray-200 transition" href="/dashboard">Seller</a>
+                <a className="px-3 py-1.5 rounded bg-gray-100 hover:bg-gray-200 transition" href="/appointments">Appointments</a>
+                <a className="px-3 py-1.5 rounded bg-black text-white hover:opacity-90 transition" href="/api/auth/signin">Sign in</a>
+                <a className="px-3 py-1.5 rounded border hover:bg-gray-50 transition" href="/api/auth/signout">Sign out</a>
+              </nav>
+            </header>
+            {children}
+          </div>
+        </Providers>
       </body>
     </html>
   );
