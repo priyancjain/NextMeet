@@ -1,5 +1,6 @@
 import { google, calendar_v3 } from "googleapis";
 import { prisma } from "./prisma";
+import { encryptToken, decryptToken } from "./encryption";
 
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID!;
 const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET!;
@@ -15,17 +16,19 @@ export function createOAuthClient() {
 
 export async function getAuthorizedCalendarClientForUser(userId: string) {
   const user = await prisma.user.findUnique({ where: { id: userId } });
-  if (!user || !user.googleRefreshToken) {
+  if (!user || !user.encryptedRefreshToken) {
     throw new Error("User is not connected to Google Calendar");
   }
+  
+  const refreshToken = decryptToken(user.encryptedRefreshToken);
   const oauth2Client = createOAuthClient();
   oauth2Client.setCredentials({
-    refresh_token: user.googleRefreshToken,
+    refresh_token: refreshToken,
     access_token: user.googleAccessToken ?? undefined,
   });
 
   const calendar = google.calendar({ version: "v3", auth: oauth2Client });
-  return { calendar, oauth2Client } as { calendar: calendar_v3.Calendar; oauth2Client: any };
+  return { calendar, oauth2Client } as { calendar: calendar_v3.Calendar; oauth2Client: InstanceType<typeof google.auth.OAuth2> };
 }
 
 export async function storeTokensForUser(params: {
@@ -35,14 +38,26 @@ export async function storeTokensForUser(params: {
   accessTokenExpires?: number | null;
 }) {
   const { userId, refreshToken, accessToken, accessTokenExpires } = params;
-  await prisma.user.update({
+  
+  const updateData: any = {
+    googleAccessToken: accessToken ?? undefined,
+    googleAccessTokenExpires: accessTokenExpires
+      ? new Date(accessTokenExpires * 1000)
+      : undefined,
+  };
+  
+  if (refreshToken) {
+    updateData.encryptedRefreshToken = encryptToken(refreshToken);
+  }
+  
+  await prisma.user.upsert({
     where: { id: userId },
-    data: {
-      googleRefreshToken: refreshToken ?? undefined,
-      googleAccessToken: accessToken ?? undefined,
-      googleAccessTokenExpires: accessTokenExpires
-        ? new Date(accessTokenExpires * 1000)
-        : undefined,
+    update: updateData,
+    create: {
+      id: userId,
+      email: '', // Will be updated by NextAuth
+      role: 'BUYER',
+      ...updateData,
     },
   });
 }
